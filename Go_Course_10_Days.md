@@ -991,11 +991,20 @@ for v := range ch {              // loops until ch is closed AND drained
 Statement `select` works like `switch` for channel operations. It blocks until one message is ready.
 
 ```go
-select {
-case msg1 := <-channel1:
-    fmt.Println("From channel 1:", msg1)
-case <-time.After(2 * time.Second):
-    fmt.Println("Timeout!")
+func main() {
+	channel1 := make(chan string)
+
+	go func() {
+		time.Sleep(1 * time.Second)
+		channel1 <- "Hello from channel 1!"
+	}()
+
+	select {
+	case msg1 := <-channel1:
+		fmt.Println("From channel 1:", msg1)
+	case <-time.After(2 * time.Second):
+		fmt.Println("Timeout!")
+	}
 }
 ```
 
