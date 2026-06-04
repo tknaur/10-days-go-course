@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.DS_Store
+.idea/
+*.swp
+*.swo
+*~
+.vscode/
+.envrc
+*.deb
+build_epub/output/
