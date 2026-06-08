@@ -271,15 +271,31 @@ for n < 5 {
 
 #### Infinite Loop
 
-Useful for daemons, event loops, and long-running services. Always provide an exit condition (`break`, `return`, or context cancellation):
+Useful for daemons, event loops, and long-running services. **`for` with no condition runs forever** – you must provide an exit path (`break`, `return`, or context cancellation), otherwise the loop never ends.
 
 ```go
+// Simplest form — explicit break.
+n := 0
 for {
-    select {
-    case msg := <-events:
-        handle(msg)
-    case <-ctx.Done():
-        return
+    n++
+    if n >= 3 {
+        break          // exits the loop
+    }
+}
+fmt.Println(n)         // 3
+```
+
+In real services, the most common pattern is an **event loop** driven by channels plus a cancellation signal (e.g., `SIGTERM` arrives → context is canceled → loop returns):
+
+```go
+func runWorker(ctx context.Context, events <-chan Event) {
+    for {
+        select {
+        case e := <-events:
+            handle(e)              // process incoming work
+        case <-ctx.Done():
+            return                 // cancellation requested — exit cleanly
+        }
     }
 }
 ```
@@ -310,21 +326,49 @@ case 2:
 
 ### 2.3 Data Collections: Arrays, Slices, and Maps
 
-#### Arrays
+#### Arrays vs Slices
 
-Fixed size determined at compile time. Rarely used directly.
+This distinction trips up most newcomers. Arrays and slices look similar but behave very differently.
+
+**Arrays** have a **fixed size that is part of the type**: `[3]int` and `[4]int` are *different types*. They are value types – assigning or passing an array **copies all elements**.
 
 ```go
-var numbers [3]int = [3]int{10, 20, 30}
+var a1 [3]int = [3]int{10, 20, 30}
+a2 := a1            // full copy of all elements
+a2[0] = 99
+fmt.Println(a1[0])  // still 10 — arrays don't share memory
 ```
 
-#### Slices
-
-Dynamic windows into arrays. They have dynamic size and are passed very efficiently.
+**Slices** are dynamic and behave like a "view" over an underlying array. Internally a slice is a 3-word header `(pointer, len, cap)`. Assigning or passing a slice copies the *header*, not the data – both copies see the same backing array.
 
 ```go
-numbers := make([]int, 0, 10)
-numbers = append(numbers, 1, 2, 3)
+s1 := []int{10, 20, 30}    // slice literal (note: no size in the type)
+s2 := s1                   // both headers point to the SAME backing array
+s2[0] = 99
+fmt.Println(s1[0])         // 99 — they share storage
+```
+
+| Aspect | Array `[N]T` | Slice `[]T` |
+|--------|--------------|-------------|
+| Size | Fixed at compile time, part of type | Dynamic, grows with `append` |
+| Memory semantics | Value (copied on assign/pass) | Header copied; backing array shared |
+| Typical use | Rare — fixed-size buffers, hash blocks | The default ordered collection |
+| Inspection | `len(a)` only | `len(s)`, `cap(s)` |
+
+In day-to-day Go you reach for slices ~99% of the time.
+
+#### Creating Slices
+
+```go
+// Empty slice with capacity hint — avoids reallocations during append:
+nums := make([]int, 0, 10)
+nums = append(nums, 1, 2, 3)        // len=3, cap=10
+
+// Pre-sized slice (filled with zero values):
+buf := make([]int, 5)               // [0 0 0 0 0]
+
+// Slice literal:
+primes := []int{2, 3, 5, 7, 11}
 ```
 
 > ⚠️ **Slice gotcha – shared backing array:** sub-slicing does **not** copy data:
@@ -352,26 +396,49 @@ for index, value := range numbers {
 
 #### Maps (Dictionaries)
 
-Key-value structures. Must be initialized with `make()` or a literal – a **`nil` map cannot be written to** (it panics).
+Maps are key-value structures – Go's hash-map / dictionary. They must be initialized before writing; a **nil map panics on assignment**.
+
+**Three ways to initialize a map:**
 
 ```go
+// 1. Empty map via make() — most common
 currencies := make(map[string]string)
 currencies["PLN"] = "Zloty"
 currencies["USD"] = "Dollar"
 
-// Reading a missing key returns the zero value (does NOT panic):
-value := currencies["EUR"]  // value == ""
-
-// Idiomatic "comma ok" check to distinguish "missing" from "zero value":
-value, exists := currencies["EUR"]
-if !exists {
-    fmt.Println("EUR not found in map")
+// 2. Map literal — when you know the contents up front
+currencies := map[string]string{
+    "PLN": "Zloty",
+    "USD": "Dollar",
+    "EUR": "Euro",
 }
 
-// nil map gotcha:
-var prices map[string]int
-prices["A"] = 1  // panic: assignment to entry in nil map
+// 3. With capacity hint — when you know the expected size (fewer rehashes)
+seen := make(map[string]bool, 1000)
 ```
+
+**Reading and the "comma ok" idiom:**
+
+```go
+// Missing key returns the zero value (does NOT panic):
+val := currencies["XYZ"]            // val == ""
+
+// To distinguish "missing" from "present with zero value":
+val, ok := currencies["EUR"]
+if !ok {
+    fmt.Println("EUR not in map")
+}
+
+// Delete a key:
+delete(currencies, "PLN")
+```
+
+> ⚠️ **The nil-map trap:** an uninitialized map is `nil`. Reading from it returns zero values (safe), but **writing to it panics**:
+> ```go
+> var prices map[string]int   // nil — no make(), no literal
+> _ = prices["A"]             // OK — returns 0
+> prices["A"] = 1             // panic: assignment to entry in nil map
+> ```
 
 ### 2.4 Best Practices
 
@@ -630,20 +697,47 @@ func NewClient(name string) *Client {
 
 ### 5.1 Implicit Interface Implementation
 
-In Go, **you don't use** keywords like `implements`. If a struct has all methods defined by an interface, it automatically implements it.
+In Go, **you don't use** keywords like `implements`. If a type has all methods declared by an interface, it automatically satisfies that interface. This is called **structural (duck) typing**.
 
 ```go
 type Notifier interface {
     Notify(message string) error
 }
 
-type EmailService struct{}
+// Two unrelated types can both satisfy the same interface —
+// neither references Notifier in its definition.
+
+type EmailService struct{ From string }
 
 func (e EmailService) Notify(message string) error {
-    fmt.Printf("Sending Email: %s\n", message)
+    fmt.Printf("[email from %s] %s\n", e.From, message)
     return nil
 }
+
+type SlackService struct{ Channel string }
+
+func (s SlackService) Notify(message string) error {
+    fmt.Printf("[slack #%s] %s\n", s.Channel, message)
+    return nil
+}
+
+// Caller code depends ONLY on the interface — it has no idea
+// which concrete type it receives. This is polymorphism in Go.
+func notifyAll(notifiers []Notifier, msg string) {
+    for _, n := range notifiers {
+        _ = n.Notify(msg)
+    }
+}
+
+func main() {
+    notifyAll([]Notifier{
+        EmailService{From: "alerts@example.com"},
+        SlackService{Channel: "ops"},
+    }, "deploy complete")
+}
 ```
+
+Adding a new notifier (SMS, PagerDuty, …) requires zero changes to `notifyAll` or to existing types – just define a new struct with a `Notify` method.
 
 ### 5.2 Empty Interface (`any`)
 
@@ -771,7 +865,49 @@ func Sum[T Number](nums []T) T {
 }
 ```
 
-> 💡 **When NOT to reach for generics:** if a small interface (`io.Reader`, `Stringer`) does the job, prefer it. Generics shine for **collections, algorithms, and helpers** (slices/maps utilities, retry wrappers) – not for business logic.
+#### More Practical Examples
+
+**`Filter`** – generic version of the classic functional helper:
+
+```go
+func Filter[T any](s []T, keep func(T) bool) []T {
+    out := make([]T, 0, len(s))
+    for _, v := range s {
+        if keep(v) {
+            out = append(out, v)
+        }
+    }
+    return out
+}
+
+evens := Filter([]int{1, 2, 3, 4, 5}, func(n int) bool { return n%2 == 0 })
+// evens == [2, 4]
+
+names := Filter([]string{"Anna", "Bob", "Alice"}, func(s string) bool {
+    return strings.HasPrefix(s, "A")
+})
+// names == ["Anna", "Alice"]
+```
+
+**`Contains`** – note the `comparable` constraint, required for `==`:
+
+```go
+func Contains[T comparable](s []T, target T) bool {
+    for _, v := range s {
+        if v == target {
+            return true
+        }
+    }
+    return false
+}
+
+Contains([]string{"go", "rust", "zig"}, "go")  // true
+Contains([]int{1, 2, 3}, 4)                    // false
+```
+
+> 💡 The standard library `slices` package (Go 1.21+) already ships `slices.Contains`, `slices.Index`, `slices.Sort`, `slices.Max`, etc. – use them instead of re-implementing.
+
+> 💡 **When NOT to reach for generics:** if a small interface (`io.Reader`, `Stringer`) does the job, prefer it. Generics shine for **collections, algorithms, and helpers** (slice/map utilities, retry wrappers, type-safe registries) – not for business logic.
 
 ### 5.5 Best Practices for Interface Design
 
@@ -859,7 +995,7 @@ if errors.Is(err, store.ErrNotFound) {
 
 #### Custom Error Types
 
-A type implementing the `error` interface – useful when you need to carry data:
+A type implementing the `error` interface – useful when you need to carry structured data with the error:
 
 ```go
 type ValidationError struct {
@@ -871,12 +1007,37 @@ func (e *ValidationError) Error() string {
     return fmt.Sprintf("invalid %s: %v", e.Field, e.Value)
 }
 
-// caller:
-var vErr *ValidationError
-if errors.As(err, &vErr) {
-    fmt.Println("field:", vErr.Field)
+// Producer: returns the error, possibly wrapped with %w to add context.
+func saveUser(name string) error {
+    if name == "" {
+        return fmt.Errorf("saveUser: %w", &ValidationError{
+            Field: "name",
+            Value: name,
+        })
+    }
+    // ... save to DB
+    return nil
+}
+
+// Consumer: extracts the typed error from anywhere in the wrap chain.
+func main() {
+    err := saveUser("")
+    if err == nil {
+        return
+    }
+
+    var vErr *ValidationError
+    if errors.As(err, &vErr) {
+        fmt.Printf("validation failed on field %q (value=%v)\n", vErr.Field, vErr.Value)
+        return
+    }
+    fmt.Println("unexpected error:", err)
 }
 ```
+
+> 📌 **How `errors.As` works:** the second argument must be a **pointer to a variable** of the target type. Here `vErr` is `*ValidationError`, so we pass `&vErr` (a `**ValidationError`). `errors.As` walks the wrap chain (`%w`) and, if it finds an error whose dynamic type matches, assigns it into `vErr` and returns `true`. That's why this works even though `saveUser` wraps the error with `fmt.Errorf("saveUser: %w", ...)`.
+
+> ⚠️ A common mistake is passing the error directly: `errors.As(err, vErr)` instead of `errors.As(err, &vErr)`. That's a compile error if you're lucky and a runtime panic if you're not – `errors.As` *requires* a pointer to a target.
 
 #### Joining Multiple Errors (Go 1.20+)
 
@@ -991,11 +1152,20 @@ for v := range ch {              // loops until ch is closed AND drained
 Statement `select` works like `switch` for channel operations. It blocks until one message is ready.
 
 ```go
-select {
-case msg1 := <-channel1:
-    fmt.Println("From channel 1:", msg1)
-case <-time.After(2 * time.Second):
-    fmt.Println("Timeout!")
+func main() {
+	channel1 := make(chan string)
+
+	go func() {
+		time.Sleep(1 * time.Second)
+		channel1 <- "Hello from channel 1!"
+	}()
+
+	select {
+	case msg1 := <-channel1:
+		fmt.Println("From channel 1:", msg1)
+	case <-time.After(2 * time.Second):
+		fmt.Println("Timeout!")
+	}
 }
 ```
 
@@ -1211,7 +1381,7 @@ mypkg/
 
 ### 8.3 Performance Tests (Benchmarking)
 
-Functions must start with `Benchmark` and accept `*testing.B`.
+Benchmarks measure the time (and optionally memory) of a code path. Functions start with `Benchmark` and accept `*testing.B`. The testing framework calls your function with an automatically-tuned iteration count `b.N` until the result stabilizes – you never set `b.N` yourself.
 
 ```go
 func BenchmarkSum(b *testing.B) {
@@ -1221,25 +1391,138 @@ func BenchmarkSum(b *testing.B) {
 }
 ```
 
-### 8.4 Fuzzing (Go 1.18+)
+Run with:
+```bash
+go test -bench=. -benchmem ./...
+```
 
-Fuzz tests generate random inputs to find edge cases and crashes. Function name must start with `Fuzz` and accept `*testing.F`:
+#### Reading the Output
+
+```
+goos: linux
+goarch: amd64
+pkg: example.com/calc
+cpu: AMD Ryzen 7 5800X
+BenchmarkSum-8           1000000000      0.31 ns/op       0 B/op       0 allocs/op
+BenchmarkParseJSON-8        250000      4821 ns/op    1248 B/op      14 allocs/op
+```
+
+| Column | Meaning |
+|--------|---------|
+| `BenchmarkSum-8` | Benchmark name; `-8` is the value of `GOMAXPROCS` during the run |
+| `1000000000` | Total iterations chosen by the framework (final `b.N`) |
+| `0.31 ns/op` | **Average time per single operation** — the headline metric |
+| `0 B/op` | Bytes allocated on the heap per operation (needs `-benchmem`) |
+| `0 allocs/op` | Number of heap allocations per operation (needs `-benchmem`) |
+
+**Lower is better in every column.** `ns/op` is the speed metric most people look at, but `allocs/op` is often the more *actionable* number: every heap allocation costs GC pressure, so removing allocations frequently improves throughput more than tweaking the inner loop.
+
+A quick sanity check: `0.31 ns/op` is sub-nanosecond – it means the compiler likely inlined and constant-folded the call away. Real benchmarks should exercise actual work; if a benchmark looks too fast to be true, the optimizer probably eliminated it.
+
+#### Excluding Setup from Measurements
+
+Expensive setup pollutes the per-op time. Reset the timer **after** the setup:
 
 ```go
+func BenchmarkProcess(b *testing.B) {
+    data := loadLargeFixture()       // expensive — should not count
+    b.ResetTimer()
+    for i := 0; i < b.N; i++ {
+        Process(data)
+    }
+}
+```
+
+For per-iteration setup, pause and resume with `b.StopTimer()` / `b.StartTimer()`.
+
+#### Comparing Two Versions with `benchstat`
+
+A single run is noisy – CPU frequency scaling, thermal throttling, and background load all matter. Never trust one run. Use `benchstat` to compute the statistical delta between runs:
+
+```bash
+go install golang.org/x/perf/cmd/benchstat@latest
+
+go test -bench=. -count=10 > old.txt    # before your change
+# ... apply optimization ...
+go test -bench=. -count=10 > new.txt    # after your change
+
+benchstat old.txt new.txt
+```
+
+Sample output:
+```
+                 │   old.txt   │              new.txt              │
+                 │   sec/op    │   sec/op     vs base              │
+ParseJSON-8        4.821µ ± 2%   3.104µ ± 1%   -35.62% (p=0.000 n=10)
+```
+
+`benchstat` reports the percent change AND a `p` value – `p<0.05` means the difference is statistically significant. Without `-count=10`, you risk celebrating noise.
+
+### 8.4 Fuzzing (Go 1.18+)
+
+Fuzz tests **generate random inputs** to find edge cases that you would never think to write by hand – crashes, panics, broken invariants. The function name starts with `Fuzz` and accepts `*testing.F`.
+
+#### Concrete Example: Catching a UTF-8 Bug
+
+Suppose we have a naive byte-level string reverse. It looks fine for ASCII – but it silently corrupts multi-byte UTF-8:
+
+```go
+// reverse.go
+func Reverse(s string) string {
+    b := []byte(s)
+    for i, j := 0, len(b)-1; i < j; i, j = i+1, j-1 {
+        b[i], b[j] = b[j], b[i]
+    }
+    return string(b)
+}
+```
+
+The fuzz test asserts two properties of `Reverse`:
+
+```go
+// reverse_test.go
 func FuzzReverse(f *testing.F) {
-    f.Add("hello")                              // seed corpus
-    f.Add("")
+    // Seed corpus — examples the fuzzer starts from and mutates.
+    for _, seed := range []string{"hello", "", "Go!", "łoś"} {
+        f.Add(seed)
+    }
     f.Fuzz(func(t *testing.T, s string) {
         rev := Reverse(s)
-        rev2 := Reverse(rev)
-        if rev2 != s {
-            t.Errorf("double reverse failed: %q != %q", s, rev2)
+        doubleRev := Reverse(rev)
+
+        // Property 1: reversing twice should return the original.
+        if s != doubleRev {
+            t.Errorf("Reverse(Reverse(%q)) = %q; want %q", s, doubleRev, s)
+        }
+        // Property 2: reversing a valid UTF-8 string should yield valid UTF-8.
+        if utf8.ValidString(s) && !utf8.ValidString(rev) {
+            t.Errorf("Reverse(%q) produced invalid UTF-8: %q", s, rev)
         }
     })
 }
 ```
 
-Run with `go test -fuzz=FuzzReverse`. Any failing input is automatically saved to `testdata/fuzz/...` and replayed in subsequent regular `go test` runs.
+Run the fuzzer (default `go test` only runs the seeds; `-fuzz` actually mutates):
+
+```bash
+go test -fuzz=FuzzReverse -fuzztime=10s
+```
+
+Within milliseconds it finds a counterexample and **minimizes** it to the smallest input that still fails:
+
+```
+fuzz: elapsed: 0s, gathering baseline coverage: 4/4 completed, now fuzzing
+fuzz: minimizing 32-byte failing input file
+--- FAIL: FuzzReverse (0.02s)
+    --- FAIL: FuzzReverse (0.00s)
+        reverse_test.go:18: Reverse("ł") produced invalid UTF-8: "\x82\xc5"
+
+    Failing input written to testdata/fuzz/FuzzReverse/8a7c4d…
+```
+
+> 📌 **The failing input becomes a permanent regression test.** Go saves the minimized input under `testdata/fuzz/<TestName>/<hash>` and **replays it on every subsequent `go test` run** (no `-fuzz` flag needed). Commit `testdata/fuzz/` to source control – once a bug is found, it can never regress unnoticed.
+
+The fix here is to convert the string to `[]rune` before reversing, so multi-byte characters stay intact.
 
 ### 8.5 Example Tests as Living Documentation
 
@@ -1334,25 +1617,7 @@ func main() {
 }
 ```
 
-### 9.3 Middleware Pattern
-
-A middleware is any function that **wraps** an `http.Handler` to add cross-cutting behavior (logging, auth, metrics):
-
-```go
-func loggingMiddleware(next http.Handler) http.Handler {
-    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        start := time.Now()
-        next.ServeHTTP(w, r)
-        slog.Info("request", "method", r.Method, "path", r.URL.Path, "dur", time.Since(start))
-    })
-}
-
-// Chain:
-handler := loggingMiddleware(authMiddleware(mux))
-http.ListenAndServe(":8080", handler)
-```
-
-### 9.4 Structured Logging with `log/slog` (Go 1.21+)
+### 9.3 Structured Logging with `log/slog` (Go 1.21+)
 
 The old `log` package is fine for hello-world but lacks structure. `log/slog` is the standard structured logger – key-value pairs, multiple handlers (text/JSON), levels, and `context.Context` integration:
 
@@ -1372,6 +1637,24 @@ Output (JSON):
 ```
 
 > 📌 `slog` reads `context.Context` via `slog.InfoContext(ctx, ...)`, letting you propagate trace IDs and request scope through your log lines.
+
+### 9.4 Middleware Pattern
+
+A middleware is any function that **wraps** an `http.Handler` to add cross-cutting behavior (logging, auth, metrics). Now that we have structured logging available, we can write a logger middleware that emits one structured log line per request:
+
+```go
+func loggingMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        start := time.Now()
+        next.ServeHTTP(w, r)
+        slog.Info("request", "method", r.Method, "path", r.URL.Path, "dur", time.Since(start))
+    })
+}
+
+// Chain:
+handler := loggingMiddleware(authMiddleware(mux))
+http.ListenAndServe(":8080", handler)
+```
 
 ### 9.5 Other Standard-Library Workhorses
 

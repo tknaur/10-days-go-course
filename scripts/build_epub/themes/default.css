@@ -1,0 +1,411 @@
+/* Go Course EPUB - Enhanced Theme */
+/* Optimized for Go language documentation with improved readability */
+
+/* General EPUB Styling */
+:root {
+  --primary-color: #00a8e8;
+  --secondary-color: #00c9a7;
+  --accent-color: #ff6b6b;
+  --go-blue: #0173da;
+  --code-bg: #f8f9fa;
+  --code-bg-dark: #e8eef7;
+  --code-border: #d4d8e0;
+  --text-color: #1a1a1a;
+  --light-text: #555555;
+  --heading-color: #0b3d91;
+  --keyword-color: #d4145a;
+  --string-color: #078905;
+  --comment-color: #6a737d;
+  --number-color: #0051ba;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  line-height: 1.7;
+  color: var(--text-color);
+  background-color: #ffffff;
+  margin: 0;
+  padding: 1.5em;
+  font-size: 1.05em;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--heading-color);
+  line-height: 1.3;
+  margin-top: 1.8em;
+  margin-bottom: 0.6em;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+h1 {
+  font-size: 2.2em;
+  border-bottom: 4px solid var(--go-blue);
+  padding-bottom: 0.4em;
+  margin-top: 0;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+h2 {
+  font-size: 1.8em;
+  border-bottom: 3px solid var(--secondary-color);
+  padding-bottom: 0.3em;
+  margin-top: 1.8em;
+}
+
+h3 {
+  font-size: 1.4em;
+  border-left: 4px solid var(--go-blue);
+  padding-left: 0.8em;
+  color: var(--go-blue);
+}
+
+h4 {
+  font-size: 1.15em;
+  color: var(--primary-color);
+}
+
+h5, h6 {
+  font-size: 1em;
+  color: var(--light-text);
+}
+
+/* Paragraphs */
+p {
+  margin-bottom: 1em;
+  text-align: left;
+  word-spacing: 0.05em;
+}
+
+/* Lists */
+ul, ol {
+  margin-left: 2em;
+  margin-bottom: 1.2em;
+  padding-left: 0;
+}
+
+li {
+  margin-bottom: 0.5em;
+  line-height: 1.8;
+}
+
+/* Links */
+a {
+  color: var(--go-blue);
+  text-decoration: none;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+a:hover {
+  border-bottom-color: var(--go-blue);
+  opacity: 0.8;
+}
+}
+
+/* Code Styling */
+code {
+  background-color: var(--code-bg-dark);
+  border: 1px solid var(--code-border);
+  border-radius: 4px;
+  padding: 0.3em 0.6em;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Menlo, Courier, monospace;
+  font-size: 0.95em;
+  color: var(--accent-color);
+  font-weight: 500;
+}
+
+pre {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e8eef7 100%);
+  border: 2px solid var(--code-border);
+  border-left: 5px solid var(--go-blue);
+  border-radius: 6px;
+  padding: 1.2em;
+  overflow-x: auto;
+  margin: 1.5em 0;
+  font-size: 0.9em;
+  line-height: 1.6;
+  box-shadow: 0 2px 8px rgba(0, 23, 218, 0.08);
+}
+
+pre code {
+  background-color: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font-weight: 400;
+}
+
+/* Pygments Syntax Highlighting - Go Language Optimized */
+/* Highlight matching */
+.hll { background-color: #fff9c4; }
+
+/* Comments - Gray and italic */
+.c, .c1, .c2, .cm, .cp, .cs { 
+  color: #6a737d; 
+  font-style: italic; 
+} 
+
+/* Keywords - Bold red/pink */
+.k, .kd, .kp, .kr, .kv, .kt { 
+  color: var(--keyword-color); 
+  font-weight: bold; 
+} 
+
+/* Names and identifiers */
+.n, .na, .nb, .nc, .no, .nd, .nl, .nn, .nx, .nt { 
+  color: #1a1a1a; 
+}
+
+/* Strings - Green */
+.s, .s1, .s2, .se, .sh, .si, .sx { 
+  color: var(--string-color); 
+  font-weight: 500;
+} 
+
+/* Numbers - Blue */
+.m, .mb, .mf, .mh, .mi, .mo { 
+  color: var(--number-color); 
+  font-weight: 500;
+}
+
+/* Function names - Blue */
+.nf, .fm { 
+  color: var(--go-blue); 
+  font-weight: 600;
+}
+
+/* Class names */
+.nc {
+  color: var(--go-blue);
+  font-weight: 600;
+}
+
+/* Operators */
+.o, .ow { 
+  color: #d4145a; 
+  font-weight: bold;
+}
+
+/* Built-in pseudo-names */
+.bp { 
+  color: #0086b3; 
+}
+
+/* Errors */
+.err { 
+  color: #ff0000; 
+  background-color: #ffe6e6;
+  font-weight: bold;
+}
+
+/* Inline code in paragraphs */
+p code, li code, td code {
+  background-color: var(--code-bg-dark);
+  padding: 0.3em 0.6em;
+  font-size: 0.9em;
+  border-radius: 3px;
+}
+
+/* Blockquotes */
+blockquote {
+  border-left: 5px solid var(--go-blue);
+  margin-left: 0;
+  margin-right: 0;
+  padding-left: 1.2em;
+  padding-right: 1em;
+  color: var(--light-text);
+  background-color: #f0f5ff;
+  font-style: italic;
+  border-radius: 4px;
+  padding: 1em 1em 1em 1.2em;
+}
+
+/* Tables */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1.5em 0;
+  border: 2px solid #0173da;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(1, 115, 218, 0.15);
+}
+
+th, td {
+  border: 1px solid #d4d8e0;
+  padding: 1em 0.8em;
+  text-align: left;
+}
+
+th {
+  background: linear-gradient(135deg, #0b3d91 0%, #0173da 100%);
+  color: #ffffff;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  font-size: 0.95em;
+}
+
+td {
+  color: #1a1a1a;
+  font-weight: 500;
+}
+
+tbody tr:nth-child(odd) {
+  background-color: #ffffff;
+}
+
+tbody tr:nth-child(even) {
+  background-color: #f5f7fa;
+}
+
+tbody tr:hover {
+  background-color: #e8f0ff;
+  transition: background-color 0.2s ease;
+}
+
+/* Images */
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1.5em 0;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Horizontal rule */
+hr {
+  border: none;
+  border-top: 2px solid var(--code-border);
+  margin: 2em 0;
+}
+
+/* EPUB page breaks */
+.page-break, .pb {
+  page-break-after: always;
+}
+
+/* Emphasized content */
+em, i {
+  font-style: italic;
+  color: var(--go-blue);
+}
+
+strong, b {
+  font-weight: 700;
+  color: var(--heading-color);
+}
+
+/* Section styling */
+section {
+  margin-bottom: 2em;
+}
+
+/* Ensure consistent spacing */
+p + p {
+  margin-top: 0;
+}
+
+/* Code block language labels (if present) */
+.code-language {
+  font-size: 0.8em;
+  color: var(--light-text);
+  font-weight: 600;
+  margin-bottom: 0.3em;
+}
+
+/* Print-friendly */
+@media print {
+  body {
+    background-color: white;
+  }
+  
+  a {
+    text-decoration: underline;
+  }
+  
+  pre {
+    border: 1px solid #ddd;
+    page-break-inside: avoid;
+  }
+}
+
+/* Dark mode support (if reader supports it) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary-color: #66b3ff;
+    --secondary-color: #4dffcc;
+    --accent-color: #ff9999;
+    --go-blue: #66b3ff;
+    --code-bg: #2a2a2e;
+    --code-bg-dark: #1e1e22;
+    --code-border: #404045;
+    --text-color: #e0e0e0;
+    --light-text: #b0b0b0;
+    --heading-color: #66b3ff;
+    --keyword-color: #ff8fa3;
+    --string-color: #99ff99;
+    --comment-color: #999999;
+    --number-color: #99ccff;
+  }
+  
+  body {
+    background-color: #1a1a1e;
+    color: var(--text-color);
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--heading-color);
+  }
+
+  code {
+    background-color: var(--code-bg-dark);
+    color: #ff9999;
+  }
+
+  pre {
+    background: linear-gradient(135deg, #2a2a2e 0%, #232327 100%);
+    border-color: var(--code-border);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+  
+  table {
+    border: 1px solid var(--code-border);
+  }
+
+  th, td {
+    border: 1px solid var(--code-border);
+  }
+
+  th {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2d5a8f 100%);
+  }
+
+  td {
+    color: #e0e0e0;
+  }
+
+  tbody tr:nth-child(odd) {
+    background-color: #1a1a1e;
+  }
+
+  tbody tr:nth-child(even) {
+    background-color: #24242a;
+  }
+
+  tbody tr:hover {
+    background-color: #2d3a52;
+  }
+
+  blockquote {
+    background-color: #1e2a4a;
+    color: var(--light-text);
+  }
+
+  a {
+    color: var(--primary-color);
+  }
+}
